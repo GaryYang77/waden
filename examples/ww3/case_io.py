@@ -71,12 +71,11 @@ def load_case(config, data_root):
         depth = np.broadcast_to(np.asarray(extension["x_profile_m"])[:, None], wet.shape).copy()
     else:
         depth = np.full(wet.shape, extension["constant_m"], dtype=float)
-    # Values outside the active domain come from the declared WW3 input,
-    # not from filling masked NetCDF output with an artificial shallow sea.
+    # Check physical WW3 depths, then align excluded cells with the wet map.
     np.testing.assert_allclose(depth[wet], observed_depth[wet], rtol=0, atol=1e-5)
-    # An open computational edge is not an impermeable zero-depth shoreline.
-    # Continue the last physical depth into an excluded zero-spectrum ghost.
-    # Physical bathymetry, scoring mask and the solver remain unchanged.
+    depth[~wet] = 0
+    # Restore positive depth for prescribed zero-spectrum outgoing ghosts.
+    # Physical wet-cell depths and the scoring mask retain their input values.
     edge_slices = {"x_high": ((-1, slice(None)), (-2, slice(None))),
                    "x_low": ((0, slice(None)), (1, slice(None))),
                    "y_high": ((slice(None), -1), (slice(None), -2)),

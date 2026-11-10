@@ -217,37 +217,29 @@ def _handle_land_boundaries(
     mode: str,
     N_stencils: Optional[Tuple[jax.Array, jax.Array, jax.Array, jax.Array]] = None,
     Cg_stencils: Optional[Tuple[jax.Array, jax.Array]] = None,
+    boundary_mask: Optional[jax.Array] = None,
 ) -> Tuple[jax.Array, jax.Array]:
     if N_stencils is None:
         N_im1, N_i = get_stencils(N, target_dim, pad_left=1, pad_right=0, mode=mode)
     else:
         _, N_im1, N_i, _ = N_stencils
 
-    land_mask = land_mask.astype(jnp.float32)
-    lm_im1, lm_i, lm_ip1 = get_stencils(land_mask, target_dim, pad_left=1, pad_right=1, mode=mode)
-    neighbor_land_mask = _broadcast_like(((lm_i == 0) | (lm_im1 == 0) | (lm_ip1 == 0)), N)
-
+    wet_left, wet_right = get_stencils(land_mask.astype(bool), target_dim, 1, 0, mode)
     if Cg_stencils is None:
-        Cg_i, Cg_ip1 = get_stencils(Cg, target_dim, pad_left=0, pad_right=1, mode=mode)
+        speed_left, speed_right = get_stencils(Cg, target_dim, 1, 0, mode)
     else:
-        Cg_i, Cg_ip1 = Cg_stencils
-
-    # Reuse the already extracted stencils so the land fallback does not rerun
-    # a second padding/slicing pass through the full field.
-    land2sea_mask = _broadcast_like((lm_i == 0) & (lm_ip1 == 1), Cg_i)
-    Cg_eff = jnp.where(land2sea_mask, Cg_ip1, Cg_i)
-    Cg_eff_im1 = get_stencils(Cg_eff, target_dim, pad_left=1, pad_right=0, mode=mode)[0]
-    Cg_b_1order = 0.5 * (Cg_eff_im1 + Cg_eff)
-    N_upwind = jnp.where(Cg_b_1order >= 0, N_im1, N_i)
-    FLN_minus_1order = Cg_b_1order * N_upwind
-
-    FLN_minus = jnp.where(neighbor_land_mask, FLN_minus_1order, Cg_b * Nb)
-    FLN_plus = get_stencils(FLN_minus, target_dim, pad_left=0, pad_right=1, mode=mode)[1]
-
-    # Closed shoreline: each face has one shared flux and is impermeable
-    # unless both incident cells are wet. Boundary forcing is separate.
-    wet_face = _broadcast_like((lm_im1 == 1) & (lm_i == 1), N)
-    FLN_minus = jnp.where(wet_face, FLN_minus, 0.0)
+        speed_left, speed_right = Cg_stencils
+    # WW3 shoreline: sea-cell speed, zero land inflow, absorbed outgoing waves.
+    speed = jnp.where(~wet_left & wet_right, speed_right,
+                      jnp.where(wet_left & ~wet_right, speed_left, Cg_b))
+    donor = jnp.where(speed >= 0, jnp.where(wet_left, N_im1, 0),
+                      jnp.where(wet_right, N_i, 0))
+    boundary_face = ~wet_left | ~wet_right
+    if boundary_mask is not None:
+        prescribed = _expand_trailing_dims(boundary_mask, N.ndim)
+        fixed_left, fixed_right = get_stencils(prescribed, target_dim, 1, 0, mode)
+        boundary_face = boundary_face | fixed_left | fixed_right
+    FLN_minus = jnp.where(boundary_face, speed * donor, Cg_b * Nb)
     FLN_plus = get_stencils(FLN_minus, target_dim, pad_left=0, pad_right=1, mode=mode)[1]
     return FLN_minus, FLN_plus
 
@@ -261,8 +253,9 @@ def quickest_flux(
     dt: float = 1.0,
     eps: float = 1e-9,
     mode: Optional[str] = None,
+    boundary_mask: Optional[jax.Array] = None,
 ) -> Tuple[jax.Array, jax.Array]:
-    """QUICKEST flux with the same TVD limiter logic as waden_hpc.
+    """QUICKEST/TVD flux with absorbing, first-order shoreline faces.
 
     Parameters
     ----------
@@ -270,12 +263,15 @@ def quickest_flux(
         Stencil padding along ``target_dim`` for spectra, velocity and mask.
         None preserves the original axis-dependent padding defaults.
         This selects stencil neighbors; it does not refresh ghost cells.
+    boundary_mask : array, optional
+        Prescribed cells, including zero-spectrum ghosts. Only their incident
+        faces use first-order upwind fluxes.
     """
     if mode is None:
         mode = "circular" if target_dim in [1, 3] else "replicate"
 
     N_im2, N_im1, N_i, N_ip1 = get_stencils(N, target_dim, pad_left=2, pad_right=1, mode=mode)
-    Cg_im1, Cg_i, Cg_ip1 = get_stencils(Cg, target_dim, pad_left=1, pad_right=1, mode=mode)
+    Cg_im1, Cg_i = get_stencils(Cg, target_dim, pad_left=1, pad_right=0, mode=mode)
     N_stencils = (N_im2, N_im1, N_i, N_ip1)
 
     Dgrid_expanded = _broadcast_like(Dgrid, N_i)
@@ -302,7 +298,8 @@ def quickest_flux(
             target_dim,
             mode,
             N_stencils=N_stencils,
-            Cg_stencils=(Cg_i, Cg_ip1),
+            Cg_stencils=(Cg_im1, Cg_i),
+            boundary_mask=boundary_mask,
         )
 
     FLN_minus = Cg_b * Nb
@@ -350,7 +347,7 @@ def theta_flux(
             target_dim,
             mode,
             N_stencils=N_stencils,
-            Cg_stencils=(Cg_i, Cg_ip1),
+            Cg_stencils=(Cg_im1, Cg_i),
         )
 
     FLN_minus = Cg_b * Nb

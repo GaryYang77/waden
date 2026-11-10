@@ -90,6 +90,13 @@ def _sanitize_physics_fields(metadata: dict, land_mask: jax.Array) -> dict:
     }
 
 
+def _physical_wet_mask(depth, mask, boundary, boundary_mask):
+    """Include prescribed wet cells excluded from the free-evolution mask."""
+    if boundary_mask is None:
+        boundary_mask = jnp.sum(boundary, axis=(-2, -1)) > 0
+    return (depth > 0) & (mask | boundary_mask)[..., None, None]
+
+
 def _compute_should_mask(num_steps: int, dt_min: int, dt: float, dtype) -> jax.Array:
     if dt <= 0:
         return jnp.zeros((num_steps,), dtype=bool)
@@ -624,7 +631,10 @@ def model_advance(
     )
     active_dt_gse = dt_gse if gse_enabled else 0
 
-    land_mask = depth > 0  # (B, H, W, 1, 1)
+    if "_spatial_wet_mask" in metadata:
+        land_mask = metadata["_spatial_wet_mask"]
+    else:
+        land_mask = _physical_wet_mask(depth, mask, boundary_condition, metadata.get("boundary_mask"))
     if "_depth_gradients" in metadata:
         DdDx, DdDy = metadata["_depth_gradients"]
     else:
@@ -816,6 +826,8 @@ def _step_with_metadata(
         "dt_global", "dt_x", "dt_y", "dt_th", "dt_k", "dt_stot", "dt_gse")},
         "neural_dt_th": config.dt_th, "neural_dt_k": config.dt_k}
     operator_metadata["boundary_mask"] = environment.boundary_mask
+    operator_metadata["_spatial_wet_mask"] = _physical_wet_mask(
+        environment.depth, environment.mask, environment.boundary, environment.boundary_mask)
     free_mask = environment.mask if environment.boundary_mask is None else (
         environment.mask & ~environment.boundary_mask)
     boundary_apply = apply_boundary_func if environment.boundary_mask is None else partial(

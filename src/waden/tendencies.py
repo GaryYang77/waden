@@ -9,6 +9,7 @@ import jax.numpy as jnp
 
 from .flux import get_stencils, quickest_flux, wavenumber_flux
 from .physics import calculate_depth_dispersion_derivative
+from .geometry import frequency_cell_widths
 
 
 ArrayFn = Callable[..., jax.Array]
@@ -93,6 +94,7 @@ def x_tendency(
         target_dim=1,
         dt=dt,
         **({"mode": stencil_mode} if stencil_mode is not None else {}),
+        **({"boundary_mask": metadata.get("boundary_mask")} if flux_fn is quickest_flux else {}),
     )
     return (fln_negx - fln_posx) / _safe_divisor(dxgrid, spectra.dtype, eps)
 
@@ -135,6 +137,7 @@ def y_tendency(
         target_dim=2,
         dt=dt,
         **({"mode": stencil_mode} if stencil_mode is not None else {}),
+        **({"boundary_mask": metadata.get("boundary_mask")} if flux_fn is quickest_flux else {}),
     )
     return (fln_negy - fln_posy) / _safe_divisor(dygrid, spectra.dtype, eps)
 
@@ -364,7 +367,7 @@ def neural_k_transport_velocity(
     dsdd_fn: ArrayFn = calculate_depth_dispersion_derivative,
     eps: float = 1e-9,
 ) -> jax.Array:
-    """Calculate neural wavenumber transport velocity from a pure network function."""
+    """Return dimensionless frequency-face transfers per configured macro dt_k."""
     inputs, fields, shape = _neural_inputs(spectra, metadata, depth, DdDx, DdDy, dsdd_fn, eps)
     b, h, w, d, f = shape
     hat_A = jnp.asarray(network_fn(inputs)).reshape(b, h, w, d, f, 2)
@@ -420,7 +423,7 @@ def sampling_neural_k_transport_velocity(
     dsdd_fn: ArrayFn = calculate_depth_dispersion_derivative,
     eps: float = 1e-9,
 ) -> jax.Array:
-    """Calculate sampled neural wavenumber transport velocity with stop-gradient on unsampled points."""
+    """Return frequency-face transfers with stop-gradient on unsampled points."""
     inputs, fields, shape = _neural_inputs(spectra, metadata, depth, DdDx, DdDy, dsdd_fn, eps)
     b, h, w, d, f = shape
     hat_A_full = _sampled_network_output(
@@ -453,6 +456,29 @@ def _first_order_tendency(
     fln_neg = transport_velocity * N_upwind / safe_dt
     fln_pos = get_stencils(fln_neg, target_dim=target_dim, pad_left=0, pad_right=1, mode=mode)[1]
     return fln_neg - fln_pos
+
+
+def _neural_k_flux_tendency(spectra, transport_velocity, dt, metadata):
+    """Redistribute E(f,theta) with shared E*df fluxes and closed endpoints.
+
+    Coefficient i belongs to bin i's left face. The existing tanh outputs
+    are transfers per configured macro dt_k; each spectral half-step removes
+    at most one donor-bin integral, including two simultaneous outflows.
+    """
+    widths = metadata.get("quadrature_df")
+    if widths is None:
+        widths = frequency_cell_widths(metadata["freq"])
+    widths = jnp.asarray(widths, dtype=spectra.dtype)
+    mass = spectra * widths
+    coefficient = transport_velocity[..., 1:]
+    donor = jnp.where(coefficient >= 0, mass[..., :-1], mass[..., 1:])
+    reference_dt = jnp.asarray(metadata.get("neural_dt_k", dt), dtype=spectra.dtype)
+    reference_dt = jnp.where(reference_dt == 0, jnp.asarray(3600, dtype=spectra.dtype), reference_dt)
+    flux = coefficient * donor / reference_dt
+    padding = [(0, 0)] * (spectra.ndim - 1)
+    left = jnp.pad(flux, padding + [(1, 0)])
+    right = jnp.pad(flux, padding + [(0, 1)])
+    return (left - right) / widths
 
 
 def neural_theta_tendency(
@@ -492,7 +518,7 @@ def neural_k_tendency(
     dsdd_fn: ArrayFn = calculate_depth_dispersion_derivative,
     eps: float = 1e-9,
 ) -> jax.Array:
-    """Calculate neural wavenumber tendency using first-order upwind flux."""
+    """Calculate learned frequency redistribution with closed energy fluxes."""
     del eps
     velocity = neural_k_transport_velocity(
         spectra,
@@ -503,7 +529,7 @@ def neural_k_tendency(
         network_fn=network_fn,
         dsdd_fn=dsdd_fn,
     )
-    wavenum_pro = _first_order_tendency(spectra, velocity, dt=metadata.get("neural_dt_k", dt), target_dim=4, mode="replicate")
+    wavenum_pro = _neural_k_flux_tendency(spectra, velocity, dt, metadata)
     return wavenum_pro
 
 
@@ -559,7 +585,7 @@ def sampling_neural_k_tendency(
     dsdd_fn: ArrayFn = calculate_depth_dispersion_derivative,
     eps: float = 1e-9,
 ) -> jax.Array:
-    """Calculate sampled neural wavenumber tendency using first-order upwind flux."""
+    """Use the same closed frequency fluxes with sampled network gradients."""
     del eps
     velocity = sampling_neural_k_transport_velocity(
         spectra,
@@ -575,7 +601,7 @@ def sampling_neural_k_tendency(
         default_rng_seed=default_rng_seed,
         dsdd_fn=dsdd_fn,
     )
-    wavenum_pro = _first_order_tendency(spectra, velocity, dt=metadata.get("neural_dt_k", dt), target_dim=4, mode="replicate")
+    wavenum_pro = _neural_k_flux_tendency(spectra, velocity, dt, metadata)
     return wavenum_pro
 
 

@@ -103,20 +103,22 @@ The common initial station spectral shape is combined with the full **t=0**
 separability. No later interior reference initializes or corrects predictions.
 `MAPSTA=1/2` selects reference ocean cells; `MAPSTA=2` supplies constant
 prescribed initial spectra. Original physical bathymetry is checked against
-the NetCDF depth. Sources, frequency shift and the tail are off. GSE is off;
+the NetCDF depth at wet cells; excluded cells then receive zero depth.
+Sources, frequency shift and the tail are off. GSE is off;
 tp1.4/tp2.1 explicitly archive `PRO3 WDTHCG=WDTHTH=0`. The tp1.1/tp1.2 text
 inputs do not explicitly specify PRO3 widths, so their binary preprocessing
 history is not reconstructed here. Compiled switches are recorded from the
 NetCDF metadata, which can differ from the adjacent text `switch` file.
 A compiled ST module does not itself enable sources in these no-source
-propagation experiments. Historical velocity factors of 1.05 are not used.
+propagation experiments.
 
-tp1.4 needs an **open outgoing edge**. Its last excluded x column is a
-zero-spectrum ghost with the adjacent physical depth continued into it.
-`Environment.boundary_mask` freezes it while the public transport carries
-flux out. Physical depths and scored cells stay unchanged. A zero-depth
-ghost selects an impermeable shoreline and traps energy; that is a different
-boundary problem. No flux formula or core implementation is changed.
+Shoreline faces use the incident sea-cell speed, absorb outgoing energy and
+supply zero land inflow. Only faces directly touching land or prescribed
+cells use first-order upwind reconstruction; interior sea faces retain
+QUICKEST/TVD. tp1.4's last excluded x column is restored as a positive-depth,
+zero-spectrum outgoing ghost using the adjacent physical depth.
+`Environment.boundary_mask` prescribes this ghost while transport carries
+flux out. Physical wet-cell depths and scored cells retain their input values.
 
 `physical_cfl` includes inactive cells and frozen ghosts. tp1.4's all-grid
 angular maximum is about 3.23 at an excluded ghost, not an evolved ocean
@@ -157,19 +159,13 @@ station spectra use only actual common output times.
 | Case | Advances | Full-field SWH relative L2 | SWH RMSE (m) | Maximum SWH difference (m) | Station spectrum relative L2 |
 |---|---:|---:|---:|---:|---:|
 | tp1.1 | 144 | 3.09e-5 | 4.08e-6 | 0.000309 | 4.13e-7 |
-| tp1.2 | 144 | 0.0433 | 0.00905 | 0.193 | 5.92e-5 |
-| tp1.4 | 144 | 0.00828 | 0.00734 | 0.0456 | 0.0785 |
-| tp2.1 | 50 | 0.0227 | 0.0474 | 0.304 | 5.48e-6 |
+| tp1.2 | 144 | 0.0434 | 0.00908 | 0.196 | 5.92e-5 |
+| tp1.4 | 144 | 0.00243 | 0.00215 | 0.00896 | 0.0620 |
+| tp2.1 | 50 | 4.63e-6 | 9.66e-6 | 0.00103 | 2.84e-6 |
 
 tp1.1's periodic-domain spectrum integral changes by about 1e-7 relative to
 its initial value. The other cases have open or prescribed boundaries.
 tp1.1's small station error covers only the first nine hours, not its full
 144-hour field trajectory. tp1.4 retains a station spectral difference of
-about 7.85%, while tp2.1 has a local maximum SWH difference of 0.304 m.
-
-These comparisons describe the archived experiments rather than exact WW3
-equivalence. Boundary treatment, splitting, precision and diagnostic
-definitions can contribute residual differences; the cause of every
-residual has not been isolated. Full float64 runs give similar SWH errors
-for tp1.2, tp1.4 and tp2.1, so those differences cannot be attributed solely
-to float32 precision.
+about 6.20%. tp2.1's full-field comparison covers 929 free sea cells at all
+51 saved times; its six spectral stations supply the station comparison.

@@ -46,6 +46,42 @@ The grid, state, environment and configuration objects are JAX pytrees.
 Use `jax.jit` around a function returning arrays or `State`;
 `RolloutResult.times` is a host-side list.
 
+### Shorelines and prescribed cells
+
+Spatial propagation uses the physical wet domain
+`(depth > 0) & (mask | boundary_mask)`. An explicit `boundary_mask` can
+prescribe positive-depth, zero-spectrum ghost cells. Without an explicit
+boundary mask, positive prescribed spectra identify boundary cells.
+
+A shoreline absorbs outgoing waves and supplies zero incoming spectrum.
+The shared face flux uses the incident sea-cell velocity and a first-order
+upwind donor. First-order reconstruction also applies to faces directly
+touching a prescribed cell; interior sea faces retain QUICKEST/TVD.
+Use a positive-depth, prescribed zero-spectrum ghost for an outgoing edge.
+These conditions follow the [WW3 6.07 manual](https://raw.githubusercontent.com/wiki/NOAA-EMC/WW3/files/manual.pdf),
+sections 3.4.1–3.4.2. Prescribed exchange and shoreline absorption belong in
+an open-domain budget; periodic-domain conservation is a separate check.
+
+### Learned frequency redistribution
+
+`neural_k_tendency` and its sampling version evolve energy density
+`E(f, theta)` using closed frequency-face fluxes. The
+network's bounded `tanh` output is a dimensionless transfer coefficient per
+configured macro `dt_k`. Coefficient `i` acts on the left face of bin `i`.
+For an internal face, the flux is the upwind donor's `E * quadrature_df`
+times that coefficient, divided by macro `dt_k`; both exterior fluxes are
+zero. Divide the flux difference by `quadrature_df` to obtain SI `dE/dt`.
+The highest-frequency bin exchanges energy through its internal face.
+
+The isolated learned operator conserves `sum(E * df * dtheta)` on the
+finite band before positivity projection, up to rounding. The
+spectral half-steps bound total donor outflow by one bin integral. Substeps
+use the macro reference time; `dt_k=0` disables frequency redistribution.
+Frequency widths use midpoint quadrature. `quadrature_df` supplies integration
+widths in Hz; `DFreq` supplies network input features. Direction transport
+is periodic. Physical `k_tendency` and an explicitly enabled tail use their
+respective physical and prescribed-tail definitions.
+
 ### Fixed-depth reuse
 
 If depth is constant throughout a window, keep it without a time axis and
@@ -132,11 +168,7 @@ need application-specific scientific validation. GSE requires displacement
 validation outside JIT at `dt=config.dt_gse/config.substeps`; its own
 `substeps` further divides that interval.
 
-## NeuralSWM compatibility
+## NeuralSWM integration
 
-WADEN's distribution version is 0.2.0; its scientific model is referred to
-as v2 in NeuralSWM. The original `physics_jax` v1 retains legacy-checkpoint
-prediction behaviour. WADEN includes scientific corrections and has a
-separate reference trajectory. Loading the same network parameters does
-not make its predictions identical to v1. Existing NeuralSWM production
-commands continue to use v1.
+NeuralSWM selects WADEN with `dynamics_backend='waden_v2'` and supplies
+source and transport networks, checkpoint restoration and training.
