@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77,<81", "wheel>=0.45,<1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "waden"
+version = "0.2.0"
+description = "Differentiable JAX wave dynamics extracted from NeuralSWM"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "The NeuralSWM Authors"}]
+dependencies = ["jax>=0.6.2,<0.7", "numpy>=2,<3"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["waden", "waden.*"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = false

@@ -1,0 +1,4 @@
+# Example-only I/O and visualization; not waden runtime dependencies.
+netCDF4>=1.6,<2
+matplotlib>=3.7,<4
+Pillow>=10,<13
