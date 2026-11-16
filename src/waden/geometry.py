@@ -20,10 +20,6 @@ def _orientation(values) -> str:
     return "increasing" if values.size < 2 or values[1] > values[0] else "decreasing"
 
 
-def _round5(value):
-    return jnp.round(value * 1e5) * 1e-5
-
-
 def _spacing(coords):
     padded = jnp.concatenate((coords[-2:-1], coords, coords[0:1]))
     spacing = jnp.abs(0.5 * (jnp.diff(padded[1:]) + jnp.diff(padded[:-1])))
@@ -66,8 +62,8 @@ def prepare_environment(
     ``lon``/``lat`` are degrees, ``theta_deg`` is the going-to compass direction
     in degrees, and ``freq`` is in Hz. For spherical grids the stored
     ``lon``/``lat`` are radians. The default remains float32; requesting
-    float64 requires enabling JAX x64 before construction. Geometry is still
-    rounded to the documented five decimals for the trigonometric fields.
+    float64 requires enabling JAX x64 before construction. Trigonometric
+    fields retain the precision of the selected dtype.
     """
     lon_deg = jnp.asarray(lon, dtype=dtype)
     lat_deg = jnp.asarray(lat, dtype=dtype)
@@ -108,7 +104,7 @@ def prepare_environment(
         lat=lat_grid,
         dlon=_spacing(lon_grid),
         dlat=_spacing(lat_grid),
-        cos_lat=_round5(jnp.cos(lat_grid)),
+        cos_lat=jnp.cos(lat_grid),
         r_earth=float(r_earth),
         coordinate_type=coordinate_type,
         lon_orientation=lon_orientation,
@@ -117,8 +113,8 @@ def prepare_environment(
     spectral_grid = SpectralGrid(
         theta_data=theta_data,
         theta_flux=theta_flux,
-        sin_theta=_round5(jnp.sin(theta_flux)),
-        cos_theta=_round5(jnp.cos(theta_flux)),
+        sin_theta=jnp.sin(theta_flux),
+        cos_theta=jnp.cos(theta_flux),
         freq=freq,
         dtheta=dtheta,
         quadrature_df=quadrature_df,
