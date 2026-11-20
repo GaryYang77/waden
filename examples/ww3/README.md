@@ -4,16 +4,15 @@ These examples configure the **installed waden public API**. They contain no
 alternative solver and need no NeuralSWM, Gin, neural checkpoint or PyTorch.
 Run from the WADEN project root, in either a checkout or an unpacked source distribution.
 
-## Install and obtain the reference
+## Install
 
 ```bash
 python -m pip install .
 python -m pip install -r examples/ww3/requirements.txt
-git clone --no-checkout https://github.com/GaryYang77/waden.git /tmp/waden-ww3-reference
-git -C /tmp/waden-ww3-reference checkout --detach b80fdce679414345134a25275421db439c185349
 ```
 
-The clone supplies archived **data only**; do not install that PyTorch project.
+The reference data are included in [`data/`](data/README.md), both in the
+repository and the source distribution. No separate download is required.
 Official experiment descriptions are in
 [NOAA-EMC/WW3](https://github.com/NOAA-EMC/WW3/tree/develop/regtests).
 The NetCDF files identify WW3 **6.07**. This workflow uses fixed outputs and
@@ -26,22 +25,24 @@ Missing assets fail; `import waden` never downloads or installs anything.
 ## Run, compare, visualize
 
 ```bash
-python examples/ww3/run_case.py \
-  --config examples/ww3/configs/tp2_1.json \
-  --data-root /tmp/waden-ww3-reference/data --output /tmp/waden-ww3/tp2_1
-python examples/ww3/compare.py \
-  --config examples/ww3/configs/tp2_1.json \
-  --data-root /tmp/waden-ww3-reference/data --output /tmp/waden-ww3/tp2_1
-python examples/ww3/plot.py \
-  --config examples/ww3/configs/tp2_1.json \
-  --data-root /tmp/waden-ww3-reference/data --output /tmp/waden-ww3/tp2_1
+for case in tp1_1 tp1_2 tp1_4 tp2_1; do
+  python examples/ww3/run_case.py \
+    --config "examples/ww3/configs/$case.json" \
+    --data-root examples/ww3/data --output "outputs/ww3/$case"
+  python examples/ww3/compare.py \
+    --config "examples/ww3/configs/$case.json" \
+    --data-root examples/ww3/data --output "outputs/ww3/$case"
+done
+
+for case in tp1_1 tp1_4 tp2_1; do
+  python examples/ww3/plot.py \
+    --config "examples/ww3/configs/$case.json" \
+    --data-root examples/ww3/data --output "outputs/ww3/$case"
+done
 ```
 
-Replace `tp2_1` with `tp1_1`, `tp1_2` or `tp1_4` for the other runs/comparisons.
-For the merged propagation figure, first run **both** tp1.1 and tp1.2 into
-sibling directories `/tmp/waden-ww3/tp1_1` and `/tmp/waden-ww3/tp1_2`.
-Then call `plot.py` with either configuration; it reads the other saved run
-automatically. `--companion-output PATH` selects a different partner directory.
+The first plot combines tp1.1 and tp1.2 from their sibling output directories.
+`--companion-output PATH` selects a different partner directory.
 `run_case.py --dtype float64` enables JAX x64 before construction. CPU and
 GPU use the same example; `run.json` records devices. Published illustrations
 use float32 on one RTX 4080 SUPER. Example-only dependencies are separate

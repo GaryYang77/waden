@@ -72,14 +72,14 @@ and performs one parameter update. It uses a synthetic target to illustrate
 the workflow. After running tp1.1 from the WW3 guide:
 
 ```bash
-python examples/neural_source.py /tmp/waden-ww3/tp1_1/initial_arrays.npz
+python examples/neural_source.py outputs/ww3/tp1_1/initial_arrays.npz
 ```
 
 **Parameter recovery.** The [source-coefficient example](examples/recover_source_scale.py)
 recovers a known source strength from synthetic observations on the supplied wave field:
 
 ```bash
-python examples/recover_source_scale.py /tmp/waden-ww3/tp1_1/initial_arrays.npz
+python examples/recover_source_scale.py outputs/ww3/tp1_1/initial_arrays.npz
 ```
 
 See the [user guide](USER_GUIDE.md) for the array format, `step` and `rollout`

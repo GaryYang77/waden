@@ -4,5 +4,6 @@ include examples/physical_step.py
 include examples/neural_source.py
 include examples/recover_source_scale.py
 recursive-include examples/ww3 *.py *.json *.md *.txt
+recursive-include examples/ww3/data *
 recursive-include assets *.webp
 global-exclude *.py[cod]
