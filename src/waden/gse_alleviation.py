@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-# v2 bootstrap copy of the v1 physics core at 47a6558; Gin registration removed.
-"""GSE spatial averaging for the JAX integrator (v2 bootstrap copy)."""
+"""GSE spatial averaging for the JAX integrator."""
 
 from __future__ import annotations
 

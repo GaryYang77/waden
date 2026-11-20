@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
-# v2 bootstrap copy of the v1 physics core at 47a6558; Gin registration removed.
-"""Types for the waden v2 core and the public state/configuration structures.
+"""JAX array types and public state, environment and configuration structures.
 
-JAX equivalent of waden_hpc/wavetypings.py.
-All torch.Tensor types are replaced with jax.Array.
-Variable names and shape conventions are kept identical to the PyTorch version.
-The dataclasses below are registered with JAX and split explicitly into
-dynamic data leaves and static/hashable metadata.
+The dataclasses are registered as JAX pytrees with dynamic array leaves
+and static metadata.
 """
 
 from __future__ import annotations
@@ -142,7 +138,7 @@ class Environment:
     boundary_mask: jax.Array | None = None
 
     def to_legacy_dict(self) -> Dict[str, jax.Array]:
-        """Reshape fields for the v1 encoder/parameterization/decoder protocol."""
+        """Reshape environmental fields for dictionary-based model callbacks."""
         depth = self.depth[..., 0, 0]
         return {
             "depth": depth,

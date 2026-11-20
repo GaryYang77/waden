@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# v2 bootstrap copy of the v1 physics core at 47a6558; Gin registration removed.
 """Pure JAX boundary utilities for NeuralWave."""
 
 import jax
@@ -28,8 +27,7 @@ def identity_boundary_update(array: jax.Array) -> jax.Array:
     Select periodic stencil modes separately in the spatial tendencies.
     This callback does not disable external boundary forcing or land masking.
     For periodic x/y transport on an all-physical-cell grid, select periodic
-    stencil modes in the spatial tendencies and use this callback; the v2
-    compatibility adapter supplies the corresponding configuration bindings.
+    stencil modes in the spatial tendencies and use this callback.
     """
     return array
 

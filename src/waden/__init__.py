@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
-# v2 bootstrap copy of the v1 physics core at 47a6558; Gin registration removed.
-"""Public API for the independent waden v2 wave dynamics core.
-
-The core originated from the v1 source at 47a6558. Scientific corrections
-are developed and validated here; physics_jax remains the frozen v1
-reference for legacy checkpoints. Cross-version numerical equivalence
-must be measured separately from checkpoint loading compatibility.
-"""
+"""Public API for WADEN's differentiable JAX wave dynamics core."""
 
 from .boundary import (
 	apply_boundary_condition,

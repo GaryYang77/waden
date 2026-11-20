@@ -136,7 +136,6 @@ def load_case(config, data_root):
     if not np.all(wet[ix, iy]):
         raise ValueError("A reference station is outside the active grid")
     provenance.update(spectrum_files=[str(p.resolve()) for p in paths],
-                      archived_revision=config["reference_revision"],
                       initial_condition="t=0 hs envelope times common t=0 directional spectrum",
                       boundary_condition="constant t=0 spectrum at MAPSTA=2",
                       outflow_ghost_edges=config.get("outflow_ghost_edges", []),

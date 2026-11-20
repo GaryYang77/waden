@@ -106,7 +106,7 @@ def main():
                       ww3_displacement_m=(centres[1] - centres[1][0]).tolist())
     integral = predicted["integral"].astype(np.float64)
     report = dict(case=config["case"], status="MEASURED_NOT_THRESHOLD_CERTIFIED",
-                  scope="Archived WW3 external comparison, not B0/V2-B0 equivalence or forecast skill",
+                  scope="Comparison against WW3 regression reference data",
                   frames=len(seconds), forecast_steps=len(seconds)-1, initial_frame_included=True,
                   score_domain="MAPSTA=1, prescribed MAPSTA=2 excluded",
                   direction_min_reference_swh_m=min_height,

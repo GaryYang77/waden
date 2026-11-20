@@ -1,7 +1,7 @@
 # Reproduce the WW3 comparisons
 
-These examples configure the **installed waden public API**. They contain no
-alternative solver and need no NeuralSWM, Gin, neural checkpoint or PyTorch.
+These examples use the **installed waden public API** with the bundled
+WW3 reference data.
 Run from the WADEN project root, in either a checkout or an unpacked source distribution.
 
 ## Install
@@ -16,8 +16,8 @@ repository and the source distribution. No separate download is required.
 Official experiment descriptions are in
 [NOAA-EMC/WW3](https://github.com/NOAA-EMC/WW3/tree/develop/regtests).
 The NetCDF files identify WW3 **6.07**. This workflow uses fixed outputs and
-requires no Fortran/MPI build. To rebuild WW3, use the archive's selected
-`ww3_grid.inp`, `ww3_strt.inp`, `ww3_shel.inp` and propagation settings.
+requires no Fortran/MPI build. To regenerate the WW3 reference files,
+use the optional instructions below.
 A different build or output dataset constitutes a different reference.
 The configs select specific files among the archive's 1968 and 2000 runs.
 Missing assets fail; `import waden` never downloads or installs anything.
@@ -53,7 +53,7 @@ Each output directory contains:
 - `prediction.npz`: full predicted spectra, finite-band moments, actual time,
   coordinates, masks, depth, integral and clipping audit.
 - `initial_arrays.npz`: an initial wave field for the neural-source example.
-- `run.json`: configuration, reference paths/revision, installed package path,
+- `run.json`: configuration, reference paths and WW3 version, installed package path,
   environment, devices, command and all-grid CFL diagnostic.
 - `comparison.json`: float64 full-window and per-time metrics, maximum-error
   indices, station coverage and pulse motion.
@@ -74,12 +74,45 @@ The plots require **Times New Roman**. Installed fonts are used directly;
 under WSL, existing `/mnt/c/Windows/Fonts/times*.ttf` files are registered
 without copying them. Else install the font or pass `--font-path /path/to/times.ttf`.
 No alternative font is silently substituted, and font files are not distributed.
-Titles, labels and legends follow the old waden figures with NWW/NWM changed
-to WADEN. tp1.4 overlays the bathymetry on separate right-hand axes, with
+Titles, labels and legends identify WW3 and WADEN consistently. tp1.4 overlays the bathymetry on separate right-hand axes, with
 depth increasing downward. tp1.1/tp1.2 annotate the initial-peak deep-water
 phase speed, group speed and grid spacing. tp1.4's displayed direction is coming-from, matching that figure;
 stored predictions and scientific comparison metrics keep their original
 conventions and are unchanged by plotting.
+
+## Optional: regenerate the reference with WW3
+
+The bundled NetCDF files are sufficient for the WADEN comparisons above.
+To run WW3 itself, install WAVEWATCH III **6.07.1** with NetCDF support and
+compile `ww3_grid`, `ww3_strt`, `ww3_shel`, `ww3_ounf` and `ww3_ounp` using
+the supplied `data/ww3_tp*/input/switch` (identical across the four cases).
+This is a serial `SHRD`, `PR3 UQ`, `NC4` configuration; no MPI launcher is
+needed. The external WW3/NetCDF-Fortran installation is separate from pip.
+
+From the WADEN project root, set the absolute executable-directory path and
+run in fresh output directories:
+
+```bash
+WW3_EXE="/absolute/path/to/WW3-6.07.1/model/exe"
+for case in ww3_tp1.1 ww3_tp1.2 ww3_tp1.4 ww3_tp2.1; do
+  work="outputs/ww3_reference/$case"
+  mkdir -p "$work"
+  cp examples/ww3/data/"$case"/input/*.inp "$work/"
+  cp examples/ww3/data/"$case"/input/*.depth "$work/"
+  (
+    cd "$work" || exit
+    for program in ww3_grid ww3_strt ww3_shel ww3_ounf ww3_ounp; do
+      "$WW3_EXE/$program" > "$program.log" 2>&1 || exit
+    done
+  ) || exit
+done
+```
+
+The generated `.nc` filenames match the bundled reference filenames.
+tp1.1 intentionally exports only the first 10 station-spectrum frames;
+tp1.2 and tp1.4 export 145 frames, and tp2.1 exports 51 frames. The bundled
+files retain their original WW3 build metadata; source-term modules are
+inactive in these propagation cases.
 
 ## Conditions and interface mapping
 

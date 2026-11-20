@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Grid and spectral-coordinate construction for the waden v2 core.
+"""Grid and spectral-coordinate construction for WADEN.
 
-The formulas mirror the v1 ``ModelArchitecture.set_wave_environment`` path
-without importing ``neuralwave_jax``.  The public input ``theta_deg`` is a
-compass direction in degrees; the spectral grid stores radians.
+The public input ``theta_deg`` is a compass direction in degrees;
+the spectral grid stores radians.
 """
 
 from __future__ import annotations
@@ -57,7 +56,7 @@ def prepare_environment(
     lat_orientation: str | None = None,
     dtype=jnp.float32,
 ) -> tuple[Grid, SpectralGrid]:
-    """Build the v2 grid and spectral grid from production coordinates.
+    """Build the spatial and spectral grids from input coordinates.
 
     ``lon``/``lat`` are degrees, ``theta_deg`` is the going-to compass direction
     in degrees, and ``freq`` is in Hz. For spherical grids the stored
@@ -131,11 +130,10 @@ def build_legacy_metadata(
     wavenum=None,
     Cg=None,
 ) -> dict:
-    """Restore the v1 metadata dictionary used by ``model_advance`` and the NN.
+    """Construct array metadata for the integrator and external callbacks.
 
-    The returned shapes and dtypes match v1 ``metadata`` exactly for the
-    official demo path.  ``wavenum``/``Cg`` are optional so ``step`` can build
-    the base metadata before solving them from depth.
+    ``wavenum`` and ``Cg`` are optional so ``step`` can construct the
+    geometry metadata before solving them from depth.
     """
     lon = grid.lon.reshape(1, -1, 1, 1, 1)
     lat = grid.lat.reshape(1, 1, -1, 1, 1)
@@ -189,7 +187,7 @@ def build_legacy_metadata(
 
 
 def from_legacy_metadata(metadata: dict) -> tuple[Grid, SpectralGrid]:
-    """Map a v1 metadata dictionary back to the v2 structures (test bridge)."""
+    """Construct spatial and spectral grids from an array metadata dictionary."""
     lon = jnp.ravel(jnp.asarray(metadata["lon"]))
     lat = jnp.ravel(jnp.asarray(metadata["lat"]))
     theta_flux = jnp.ravel(jnp.asarray(metadata["theta"]))

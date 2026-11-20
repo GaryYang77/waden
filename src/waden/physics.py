@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Origin: v1 at 47a6558; independent v2 scientific candidates evolve here.
 """
 Physics calculations for NeuralWave JAX.
 

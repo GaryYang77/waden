@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# v2 bootstrap copy of the v1 physics core at 47a6558; Gin registration removed.
 """
 Flux calculations for NeuralWave JAX.
 
@@ -42,7 +41,7 @@ def _index_at_axis(ndim: int, target_dim: int, index: int) -> Tuple[slice | int,
 
 # Ultimate JAX-optimized version (even moveaxis is omitted) 
 # As padding in JAX is efficient and supports specifying the axis directly, 
-# we can avoid moving axes around (compare to Torch version).
+# we can avoid moving axes around.
 def get_stencils(
     tensor: jax.Array,
     target_dim: int,
